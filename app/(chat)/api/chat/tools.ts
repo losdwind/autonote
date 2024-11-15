@@ -16,14 +16,17 @@ import {
 } from "@/db/queries";
 import { generateUUID } from "@/lib/utils";
 
-export const chatTools = {
+export const chatTools: any = {
   getWeather: {
     description: "Get the current weather at a location",
     parameters: z.object({
       latitude: z.number().describe("Latitude coordinate"),
       longitude: z.number().describe("Longitude coordinate"),
     }),
-    execute: async ({ latitude, longitude }) => {
+    execute: async ({
+      latitude,
+      longitude,
+    }: z.infer<typeof chatTools.getWeather.parameters>) => {
       const response = await fetch(
         `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m&hourly=temperature_2m&daily=sunrise,sunset&timezone=auto`
       );
@@ -38,7 +41,10 @@ export const chatTools = {
       flightNumber: z.string().describe("Flight number"),
       date: z.string().describe("Date of the flight"),
     }),
-    execute: async ({ flightNumber, date }) => {
+    execute: async ({
+      flightNumber,
+      date,
+    }: z.infer<typeof chatTools.displayFlightStatus.parameters>) => {
       const flightStatus = await generateSampleFlightStatus({
         flightNumber,
         date,
@@ -53,7 +59,10 @@ export const chatTools = {
       origin: z.string().describe("Origin airport or city"),
       destination: z.string().describe("Destination airport or city"),
     }),
-    execute: async ({ origin, destination }) => {
+    execute: async ({
+      origin,
+      destination,
+    }: z.infer<typeof chatTools.searchFlights.parameters>) => {
       const results = await generateSampleFlightSearchResults({
         origin,
         destination,
@@ -67,7 +76,9 @@ export const chatTools = {
     parameters: z.object({
       flightNumber: z.string().describe("Flight number"),
     }),
-    execute: async ({ flightNumber }) => {
+    execute: async ({
+      flightNumber,
+    }: z.infer<typeof chatTools.selectSeats.parameters>) => {
       const seats = await generateSampleSeatSelection({ flightNumber });
       return seats;
     },
@@ -93,7 +104,9 @@ export const chatTools = {
       }),
       passengerName: z.string().describe("Name of the passenger"),
     }),
-    execute: async (props) => {
+    execute: async (
+      props: z.infer<typeof chatTools.createReservation.parameters>
+    ) => {
       const { totalPriceInUSD } = await generateReservationPrice(props);
       const session = await auth();
 
@@ -122,7 +135,9 @@ export const chatTools = {
         .string()
         .describe("Unique identifier for the reservation"),
     }),
-    execute: async ({ reservationId }) => {
+    execute: async ({
+      reservationId,
+    }: z.infer<typeof chatTools.authorizePayment.parameters>) => {
       return { reservationId };
     },
   },
@@ -133,7 +148,9 @@ export const chatTools = {
         .string()
         .describe("Unique identifier for the reservation"),
     }),
-    execute: async ({ reservationId }) => {
+    execute: async ({
+      reservationId,
+    }: z.infer<typeof chatTools.verifyPayment.parameters>) => {
       const reservation = await getReservationById({ id: reservationId });
 
       if (reservation.hasCompletedPayment) {
@@ -171,7 +188,9 @@ export const chatTools = {
         gate: z.string().describe("Arrival gate"),
       }),
     }),
-    execute: async (boardingPass) => {
+    execute: async (
+      boardingPass: z.infer<typeof chatTools.displayBoardingPass.parameters>
+    ) => {
       return boardingPass;
     },
   },
@@ -180,7 +199,9 @@ export const chatTools = {
     parameters: z.object({
       content: z.string().describe("Content to generate a note from"),
     }),
-    execute: async ({ content }) => {
+    execute: async ({
+      content,
+    }: z.infer<typeof chatTools.generateNote.parameters>) => {
       const note = await generateNote({ content });
       return note;
     },
@@ -256,44 +277,61 @@ export const chatTools = {
         })
         .describe("Structured note data from generateNote"),
     }),
-    execute: async ({ noteData }) => {
+    execute: async ({
+      noteData,
+    }: z.infer<typeof chatTools.createNote.parameters>) => {
       try {
         const session = await auth();
         if (!session?.user?.id)
-          return { success: false, error: "User must be signed in to create notes" };
+          return {
+            success: false,
+            error: "User must be signed in to create notes",
+          };
 
         // Add IDs to the note and all nested objects
         const noteWithIds = {
           ...noteData,
           id: generateUUID(),
           userId: session.user.id,
-          persons: noteData.persons?.map((person) => ({
-            ...person,
-            id: generateUUID(),
-          })),
-          moments: noteData.moments?.map((moment) => ({
-            ...moment,
-            id: generateUUID(),
-          })),
-          todos: noteData.todos?.map((todo) => ({
-            ...todo,
-            id: generateUUID(),
-          })),
-          gadgets: noteData.gadgets?.map((gadget) => ({
-            ...gadget,
-            id: generateUUID(),
-            warranty: gadget.warranty ? JSON.stringify(gadget.warranty) : null,
-            specifications: gadget.specifications ? JSON.stringify(gadget.specifications) : null,
-          })),
+          persons: noteData.persons?.map(
+            (person: z.infer<(typeof noteData.persons)[0]>) => ({
+              ...person,
+              id: generateUUID(),
+            })
+          ),
+          moments: noteData.moments?.map(
+            (moment: z.infer<(typeof noteData.moments)[0]>) => ({
+              ...moment,
+              id: generateUUID(),
+            })
+          ),
+          todos: noteData.todos?.map(
+            (todo: z.infer<(typeof noteData.todos)[0]>) => ({
+              ...todo,
+              id: generateUUID(),
+            })
+          ),
+          gadgets: noteData.gadgets?.map(
+            (gadget: z.infer<(typeof noteData.gadgets)[0]>) => ({
+              ...gadget,
+              id: generateUUID(),
+              warranty: gadget.warranty
+                ? JSON.stringify(gadget.warranty)
+                : null,
+              specifications: gadget.specifications
+                ? JSON.stringify(gadget.specifications)
+                : null,
+            })
+          ),
         };
 
         const createdNote = await createNote({ noteData: noteWithIds });
         return { success: true, note: createdNote };
       } catch (error) {
-        return { 
-          success: false, 
+        return {
+          success: false,
           error: "Failed to create note",
-          details: error instanceof Error ? error.message : "Unknown error"
+          details: error instanceof Error ? error.message : "Unknown error",
         };
       }
     },
@@ -307,8 +345,11 @@ export const chatTools = {
     execute: async () => {
       const session = await auth();
       if (!session?.user?.id)
-        return { success: false, error: "User must be signed in to view notes" };
-        
+        return {
+          success: false,
+          error: "User must be signed in to view notes",
+        };
+
       const note = await getLatestNote({ userId: session.user.id });
       if (!note) return { success: false, error: "No notes found" };
 

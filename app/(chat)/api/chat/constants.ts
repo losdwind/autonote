@@ -28,8 +28,9 @@ export const systemPrompt = `
      - Moments: Ask about date, location, mood
      - Todos: Ask about due dates, priority
      - Gadgets: Ask about specifications, warranty
+`;
 
-// export const systemPrompt = `\n
+// export const systemPrompt = `
 //         - you help users manage their notes!
 //         - keep your responses limited to a sentence.
 //         - DO NOT output lists.
