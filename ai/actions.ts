@@ -1,6 +1,8 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 
+import { generateUUID } from "@/lib/utils";
+
 import { geminiFlashModel } from ".";
 
 export async function generateSampleFlightStatus({
@@ -66,7 +68,7 @@ export async function generateSampleFlightSearchResults({
         timestamp: z.string().describe("ISO 8601 arrival date and time"),
       }),
       airlines: z.array(
-        z.string().describe("Airline names, e.g., American Airlines, Emirates"),
+        z.string().describe("Airline names, e.g., American Airlines, Emirates")
       ),
       priceInUSD: z.number().describe("Flight price in US dollars"),
       numberOfStops: z.number().describe("Number of stops during the flight"),
@@ -94,7 +96,7 @@ export async function generateSampleSeatSelection({
         isAvailable: z
           .boolean()
           .describe("Whether the seat is available for booking"),
-      }),
+      })
     ),
   });
 
@@ -122,7 +124,11 @@ export async function generateReservationPrice(props: {
 }) {
   const { object: reservation } = await generateObject({
     model: geminiFlashModel,
-    prompt: `Generate price for the following reservation \n\n ${JSON.stringify(props, null, 2)}`,
+    prompt: `Generate price for the following reservation \n\n ${JSON.stringify(
+      props,
+      null,
+      2
+    )}`,
     schema: z.object({
       totalPriceInUSD: z
         .number()
@@ -131,4 +137,109 @@ export async function generateReservationPrice(props: {
   });
 
   return reservation;
+}
+
+export async function generateNote(props: { content: string }) {
+  const { object: note } = await generateObject({
+    model: geminiFlashModel,
+    prompt: `Generate a structured note from the following content, analyze user's context and intent, if it is a general note or bookmarks, put the content into note content field and finish, if it is more complicated, then ignore the content field and try to fit it into persons, moments, and todos, if applicable: \n\n ${props.content}`,
+    schema: z.object({
+      title: z
+        .string()
+        .describe("A concise title summarizing the note content"),
+      content: z.string().describe("The main note content"),
+      persons: z
+        .array(
+          z.object({
+            name: z.string().describe("Name of the person mentioned"),
+            birthDate: z
+              .string()
+              .optional()
+              .describe("ISO 8601 birth date if mentioned"),
+            relationship: z
+              .string()
+              .optional()
+              .describe("Relationship to the person"),
+            contactInfo: z
+              .object({
+                email: z
+                  .string()
+                  .optional()
+                  .describe("Person's email if mentioned"),
+                phone: z
+                  .string()
+                  .optional()
+                  .describe("Person's phone if mentioned"),
+                address: z
+                  .string()
+                  .optional()
+                  .describe("Person's address if mentioned"),
+              })
+              .optional(),
+          })
+        )
+        .optional(),
+      moments: z
+        .array(
+          z.object({
+            date: z.string().describe("ISO 8601 date of the moment"),
+            location: z
+              .string()
+              .optional()
+              .describe("Location where the moment occurred"),
+            mood: z
+              .string()
+              .optional()
+              .describe("Mood or emotion associated with the moment"),
+            content: z
+              .string()
+              .optional()
+              .describe("Description of the moment"),
+          })
+        )
+        .optional(),
+      todos: z
+        .array(
+          z.object({
+            title: z.string().describe("Todo item description"),
+            dueDate: z
+              .string()
+              .optional()
+              .describe("ISO 8601 due date for the todo"),
+            priority: z.enum(["low", "medium", "high"]).optional(),
+            status: z.enum(["pending", "completed"]).default("pending"),
+          })
+        )
+        .optional(),
+      gadgets: z
+        .array(
+          z.object({
+            name: z.string().describe("Name of the gadget"),
+            brand: z.string().optional().describe("Brand of the gadget"),
+            model: z.string().optional().describe("Model of the gadget"),
+            purchaseDate: z
+              .string()
+              .optional()
+              .describe("ISO 8601 purchase date"),
+            warranty: z.object({
+              expiryDate: z.string().optional().describe("ISO 8601 warranty expiry date"),
+              provider: z.string().optional().describe("Warranty provider"),
+              details: z.string().optional().describe("Warranty details")
+            })
+              .optional()
+              .describe("Warranty information"),
+            specifications: z.object({
+              dimensions: z.string().optional().describe("Physical dimensions"),
+              weight: z.string().optional().describe("Weight of the gadget"),
+              features: z.array(z.string()).optional().describe("List of features")
+            })
+              .optional()
+              .describe("Technical specifications"),
+          })
+        )
+        .optional(),
+    }),
+  });
+
+  return note;
 }

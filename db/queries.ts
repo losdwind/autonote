@@ -6,6 +6,8 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
 import {
+  Moment,
+  Note,
   user,
   chat,
   User,
@@ -21,6 +23,8 @@ import {
   gadget,
   attachment,
   noteAttachments,
+  Todo,
+  Person,
 } from "./schema";
 
 // Optionally, if not using email/pass login, you can
@@ -223,6 +227,18 @@ export async function getNoteWithRelations({ id }: { id: string }) {
   }
 }
 
+export async function getLatestNote({ userId }: { userId: string }) {
+  const [latestNote] = await db
+    .select()
+    .from(note)
+    .where(eq(note.userId, userId))
+    .orderBy(desc(note.createdAt))
+    .limit(1);
+
+  if (!latestNote) return null;
+  return await getNoteWithRelations({ id: latestNote.id });
+}
+
 export async function getRecentNotes({ userId }: { userId: string }) {
   const notes = await db
     .select()
@@ -283,4 +299,59 @@ export async function getRecentAttachments({ userId }: { userId: string }) {
     .orderBy(desc(attachment.createdAt))
     .limit(5);
   return attachments;
+}
+
+export async function createNote({
+  noteData,
+  momentsData,
+  personsData,
+  todosData,
+}: {
+  noteData: Note;
+  momentsData?: Array<Moment>;
+  personsData?: Array<Person>;
+  todosData?: Array<Todo>;
+}) {
+  await db.insert(note).values({
+    id: noteData.id,
+    userId: noteData.userId,
+    title: noteData.title,
+    content: noteData.content,
+  });
+
+  if (personsData) {
+    await Promise.all(
+      personsData.map((personData) => {
+        db.insert(person).values(personData);
+        db.insert(notePersons).values({
+          noteId: noteData.id,
+          personId: personData.id,
+        });
+      })
+    );
+  }
+
+  if (momentsData) {
+    await Promise.all(
+      momentsData.map((momentData) => {
+        db.insert(moment).values(momentData);
+        db.insert(noteMoments).values({
+          noteId: noteData.id,
+          momentId: momentData.id,
+        });
+      })
+    );
+  }
+
+  if (todosData) {
+    await Promise.all(
+      todosData.map((todoData) => {
+        db.insert(todo).values(todoData);
+        db.insert(noteTodos).values({
+          noteId: noteData.id,
+          todoId: todoData.id,
+        });
+      })
+    );
+  }
 }

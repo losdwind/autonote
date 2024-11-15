@@ -15,6 +15,7 @@ import { FlightStatus } from "../flights/flight-status";
 import { ListFlights } from "../flights/list-flights";
 import { SelectSeats } from "../flights/select-seats";
 import { VerifyPayment } from "../flights/verify-payment";
+import { NoteCard } from "../notes/note";
 
 export const Message = ({
   chatId,
@@ -29,6 +30,7 @@ export const Message = ({
   toolInvocations: Array<ToolInvocation> | undefined;
   attachments?: Array<Attachment>;
 }) => {
+  console.log("Tool invocations:", toolInvocations);
   return (
     <motion.div
       className={`flex flex-row gap-4 px-4 w-full md:w-[500px] md:px-0 first-of-type:pt-20`}
@@ -50,13 +52,26 @@ export const Message = ({
           <div className="flex flex-col gap-4">
             {toolInvocations.map((toolInvocation) => {
               const { toolName, toolCallId, state } = toolInvocation;
+              console.log("1. toolInvocations exist:", toolInvocations);
+              console.log("2. Processing tool:", {
+                toolName,
+                state,
+                toolCallId,
+              });
 
               if (state === "result") {
                 const { result } = toolInvocation;
+                console.log("3. Tool has result:", { toolName, result });
+                console.log("Tool invocation:", { toolName, result });
+                console.log("--------------------------------");
 
                 return (
                   <div key={toolCallId}>
-                    {toolName === "getWeather" ? (
+                    {toolName === "generateNote" ? (
+                      <NoteCard note={result} />
+                    ) : toolName === "showLatestNote" ? (
+                      <NoteCard note={result} />
+                    ) : toolName === "getWeather" ? (
                       <Weather weatherAtLocation={result} />
                     ) : toolName === "displayFlightStatus" ? (
                       <FlightStatus flightStatus={result} />
@@ -82,7 +97,9 @@ export const Message = ({
               } else {
                 return (
                   <div key={toolCallId} className="skeleton">
-                    {toolName === "getWeather" ? (
+                    {toolName === "generateNote" ? (
+                      <NoteCard />
+                    ) : toolName === "getWeather" ? (
                       <Weather />
                     ) : toolName === "displayFlightStatus" ? (
                       <FlightStatus />

@@ -1,13 +1,19 @@
 import { z } from "zod";
 
 import {
+  generateNote,
   generateReservationPrice,
   generateSampleFlightSearchResults,
   generateSampleFlightStatus,
   generateSampleSeatSelection,
 } from "@/ai/actions";
 import { auth } from "@/app/(auth)/auth";
-import { createReservation, getReservationById } from "@/db/queries";
+import {
+  createNote,
+  createReservation,
+  getReservationById,
+  getLatestNote,
+} from "@/db/queries";
 import { generateUUID } from "@/lib/utils";
 
 export const chatTools = {
@@ -167,6 +173,146 @@ export const chatTools = {
     }),
     execute: async (boardingPass) => {
       return boardingPass;
+    },
+  },
+  generateNote: {
+    description: "Generate a note from the user's message to show to the user",
+    parameters: z.object({
+      content: z.string().describe("Content to generate a note from"),
+    }),
+    execute: async ({ content }) => {
+      const note = await generateNote({ content });
+      return note;
+    },
+  },
+
+  createNote: {
+    description: "Save a generated note to the database",
+    parameters: z.object({
+      noteData: z
+        .object({
+          title: z.string(),
+          content: z.string(),
+          persons: z
+            .array(
+              z.object({
+                name: z.string(),
+                birthDate: z.string().optional(),
+                relationship: z.string().optional(),
+                contactInfo: z
+                  .object({
+                    email: z.string().optional(),
+                    phone: z.string().optional(),
+                    address: z.string().optional(),
+                  })
+                  .optional(),
+              })
+            )
+            .optional(),
+          moments: z
+            .array(
+              z.object({
+                date: z.string(),
+                location: z.string().optional(),
+                mood: z.string().optional(),
+                content: z.string().optional(),
+              })
+            )
+            .optional(),
+          todos: z
+            .array(
+              z.object({
+                title: z.string(),
+                dueDate: z.string().optional(),
+                priority: z.enum(["low", "medium", "high"]).optional(),
+                status: z.enum(["pending", "completed"]),
+              })
+            )
+            .optional(),
+          gadgets: z
+            .array(
+              z.object({
+                name: z.string(),
+                brand: z.string().optional(),
+                model: z.string().optional(),
+                purchaseDate: z.string().optional(),
+                warranty: z
+                  .object({
+                    expiryDate: z.string().optional(),
+                    provider: z.string().optional(),
+                    terms: z.string().optional(),
+                  })
+                  .optional(),
+                specifications: z
+                  .object({
+                    dimensions: z.string().optional(),
+                    weight: z.string().optional(),
+                    features: z.array(z.string()).optional(),
+                  })
+                  .optional(),
+              })
+            )
+            .optional(),
+        })
+        .describe("Structured note data from generateNote"),
+    }),
+    execute: async ({ noteData }) => {
+      try {
+        const session = await auth();
+        if (!session?.user?.id)
+          return { success: false, error: "User must be signed in to create notes" };
+
+        // Add IDs to the note and all nested objects
+        const noteWithIds = {
+          ...noteData,
+          id: generateUUID(),
+          userId: session.user.id,
+          persons: noteData.persons?.map((person) => ({
+            ...person,
+            id: generateUUID(),
+          })),
+          moments: noteData.moments?.map((moment) => ({
+            ...moment,
+            id: generateUUID(),
+          })),
+          todos: noteData.todos?.map((todo) => ({
+            ...todo,
+            id: generateUUID(),
+          })),
+          gadgets: noteData.gadgets?.map((gadget) => ({
+            ...gadget,
+            id: generateUUID(),
+            warranty: gadget.warranty ? JSON.stringify(gadget.warranty) : null,
+            specifications: gadget.specifications ? JSON.stringify(gadget.specifications) : null,
+          })),
+        };
+
+        const createdNote = await createNote({ noteData: noteWithIds });
+        return { success: true, note: createdNote };
+      } catch (error) {
+        return { 
+          success: false, 
+          error: "Failed to create note",
+          details: error instanceof Error ? error.message : "Unknown error"
+        };
+      }
+    },
+  },
+
+  showLatestNote: {
+    description: "Show the user's most recently created note",
+    parameters: z.object({
+      dummy: z.string().optional().describe("No parameters needed"),
+    }),
+    execute: async () => {
+      const session = await auth();
+      if (!session?.user?.id)
+        return { success: false, error: "User must be signed in to view notes" };
+        
+      const note = await getLatestNote({ userId: session.user.id });
+      if (!note) return { success: false, error: "No notes found" };
+
+      return { success: true, note };
     },
   },
 };

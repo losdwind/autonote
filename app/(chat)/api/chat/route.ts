@@ -17,6 +17,8 @@ export async function POST(request: Request) {
   const { id, messages }: { id: string; messages: Array<Message> } =
     await request.json();
 
+  console.log("Incoming messages:", messages);
+
   const session = await auth();
 
   if (!session) {
@@ -27,12 +29,19 @@ export async function POST(request: Request) {
     (message) => message.content.length > 0
   );
 
+  console.log("Core messages:", coreMessages);
+
   const result = await streamText({
     model: geminiProModel,
     system: systemPrompt,
     messages: coreMessages,
     tools: chatTools,
     onFinish: async ({ responseMessages }) => {
+      console.log(
+        "Response messages:",
+        responseMessages.map((message) => message.content)
+      );
+
       if (session.user && session.user.id) {
         try {
           await saveChat({
