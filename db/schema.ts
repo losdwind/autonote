@@ -140,7 +140,6 @@ export type Person = Omit<InferSelectModel<typeof person>, "contactInfo"> & {
     email?: string;
     phone?: string;
     address?: string;
-    [key: string]: any;
   };
 };
 

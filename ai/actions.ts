@@ -1,8 +1,6 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 
-import { generateUUID } from "@/lib/utils";
-
 import { geminiFlashModel } from ".";
 
 export async function generateSampleFlightStatus({
@@ -147,7 +145,7 @@ export async function generateNote(props: { content: string }) {
       title: z
         .string()
         .describe("A concise title summarizing the note content"),
-      content: z.string().describe("The main note content"),
+      content: z.string().optional().describe("The main note content"),
       persons: z
         .array(
           z.object({
@@ -221,18 +219,29 @@ export async function generateNote(props: { content: string }) {
               .string()
               .optional()
               .describe("ISO 8601 purchase date"),
-            warranty: z.object({
-              expiryDate: z.string().optional().describe("ISO 8601 warranty expiry date"),
-              provider: z.string().optional().describe("Warranty provider"),
-              details: z.string().optional().describe("Warranty details")
-            })
+            warranty: z
+              .object({
+                expiryDate: z
+                  .string()
+                  .optional()
+                  .describe("ISO 8601 warranty expiry date"),
+                provider: z.string().optional().describe("Warranty provider"),
+                details: z.string().optional().describe("Warranty details"),
+              })
               .optional()
               .describe("Warranty information"),
-            specifications: z.object({
-              dimensions: z.string().optional().describe("Physical dimensions"),
-              weight: z.string().optional().describe("Weight of the gadget"),
-              features: z.array(z.string()).optional().describe("List of features")
-            })
+            specifications: z
+              .object({
+                dimensions: z
+                  .string()
+                  .optional()
+                  .describe("Physical dimensions"),
+                weight: z.string().optional().describe("Weight of the gadget"),
+                features: z
+                  .array(z.string())
+                  .optional()
+                  .describe("List of features"),
+              })
               .optional()
               .describe("Technical specifications"),
           })

@@ -2,13 +2,7 @@ import { convertToCoreMessages, Message, streamText } from "ai";
 
 import { geminiProModel } from "@/ai";
 import { auth } from "@/app/(auth)/auth";
-import {
-  createReservation,
-  deleteChatById,
-  getChatById,
-  getReservationById,
-  saveChat,
-} from "@/db/queries";
+import { deleteChatById, getChatById, saveChat } from "@/db/queries";
 
 import { systemPrompt } from "./constants";
 import { chatTools } from "./tools";

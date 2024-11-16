@@ -1,4 +1,4 @@
-import "server-only";
+"server-only";
 
 import { genSaltSync, hashSync } from "bcrypt-ts";
 import { desc, eq } from "drizzle-orm";
@@ -6,25 +6,20 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
 import {
-  Moment,
-  Note,
-  user,
-  chat,
-  User,
-  reservation,
-  note,
-  notePersons,
-  noteMoments,
-  noteTodos,
-  noteGadgets,
-  person,
-  moment,
-  todo,
-  gadget,
   attachment,
+  chat,
+  gadget,
+  moment,
+  note,
   noteAttachments,
-  Todo,
-  Person,
+  noteGadgets,
+  noteMoments,
+  notePersons,
+  noteTodos,
+  person,
+  todo,
+  User,
+  user,
 } from "./schema";
 
 // Optionally, if not using email/pass login, you can
@@ -119,48 +114,6 @@ export async function getChatById({ id }: { id: string }) {
   }
 }
 
-export async function createReservation({
-  id,
-  userId,
-  details,
-}: {
-  id: string;
-  userId: string;
-  details: any;
-}) {
-  return await db.insert(reservation).values({
-    id,
-    createdAt: new Date(),
-    userId,
-    hasCompletedPayment: false,
-    details: JSON.stringify(details),
-  });
-}
-
-export async function getReservationById({ id }: { id: string }) {
-  const [selectedReservation] = await db
-    .select()
-    .from(reservation)
-    .where(eq(reservation.id, id));
-
-  return selectedReservation;
-}
-
-export async function updateReservation({
-  id,
-  hasCompletedPayment,
-}: {
-  id: string;
-  hasCompletedPayment: boolean;
-}) {
-  return await db
-    .update(reservation)
-    .set({
-      hasCompletedPayment,
-    })
-    .where(eq(reservation.id, id));
-}
-
 // Add this new query function
 export async function getNoteWithRelations({ id }: { id: string }) {
   try {
@@ -228,15 +181,21 @@ export async function getNoteWithRelations({ id }: { id: string }) {
 }
 
 export async function getLatestNote({ userId }: { userId: string }) {
-  const [latestNote] = await db
-    .select()
-    .from(note)
-    .where(eq(note.userId, userId))
-    .orderBy(desc(note.createdAt))
-    .limit(1);
+  try {
+    const [latestNote] = await db
+      .select()
+      .from(note)
+      .where(eq(note.userId, userId))
+      .orderBy(desc(note.createdAt))
+      .limit(1);
 
-  if (!latestNote) return null;
-  return await getNoteWithRelations({ id: latestNote.id });
+    // Return null if no note is found (don't throw an error)
+    if (!latestNote) return null;
+    return latestNote;
+  } catch (error) {
+    console.error("Failed to get latest note from database", error);
+    throw error;
+  }
 }
 
 export async function getRecentNotes({ userId }: { userId: string }) {
@@ -302,56 +261,148 @@ export async function getRecentAttachments({ userId }: { userId: string }) {
 }
 
 export async function createNote({
-  noteData,
-  momentsData,
-  personsData,
-  todosData,
+  userId,
+  title,
+  content,
+  moments,
+  persons,
+  todos,
+  gadgets,
 }: {
-  noteData: Note;
-  momentsData?: Array<Moment>;
-  personsData?: Array<Person>;
-  todosData?: Array<Todo>;
+  userId: string;
+  title: string;
+  content?: string;
+  persons?: Array<{
+    name: string;
+    birthDate?: string;
+    relationship?: string;
+    contactInfo?: {
+      email?: string;
+      phone?: string;
+      address?: string;
+    };
+  }>;
+  moments?: Array<{
+    date: string;
+    location?: string;
+    mood?: string;
+    content?: string;
+  }>;
+  todos?: Array<{
+    title: string;
+    dueDate?: string;
+    priority?: "low" | "medium" | "high";
+    status: "pending" | "completed";
+  }>;
+  gadgets?: Array<{
+    name: string;
+    brand?: string;
+    model?: string;
+    purchaseDate?: string;
+    warranty?: {
+      expiryDate?: string;
+      provider?: string;
+      details?: string;
+    };
+    specifications?: {
+      dimensions?: string;
+      weight?: string;
+      features?: string[];
+    };
+  }>;
 }) {
-  await db.insert(note).values({
-    id: noteData.id,
-    userId: noteData.userId,
-    title: noteData.title,
-    content: noteData.content,
-  });
+  const [newNote] = await db
+    .insert(note)
+    .values({
+      userId,
+      title,
+      content: content ?? "",
+    })
+    .returning({ id: note.id });
 
-  if (personsData) {
+  if (persons) {
     await Promise.all(
-      personsData.map((personData) => {
-        db.insert(person).values(personData);
-        db.insert(notePersons).values({
-          noteId: noteData.id,
-          personId: personData.id,
+      persons.map(async (personData) => {
+        // First insert the person and get the ID back
+        const [newPerson] = await db
+          .insert(person)
+          .values({
+            ...personData,
+            userId,
+            birthDate: personData.birthDate
+              ? new Date(personData.birthDate)
+              : null,
+          })
+          .returning({ id: person.id });
+
+        // Then create the relationship with the returned ID
+        await db.insert(notePersons).values({
+          noteId: newNote.id,
+          personId: newPerson.id,
         });
       })
     );
   }
 
-  if (momentsData) {
+  if (moments) {
     await Promise.all(
-      momentsData.map((momentData) => {
-        db.insert(moment).values(momentData);
-        db.insert(noteMoments).values({
-          noteId: noteData.id,
-          momentId: momentData.id,
+      moments.map(async (momentData) => {
+        const [newMoment] = await db
+          .insert(moment)
+          .values({
+            ...momentData,
+            userId,
+            date: momentData.date ? new Date(momentData.date) : new Date(),
+          })
+          .returning({ id: moment.id });
+
+        await db.insert(noteMoments).values({
+          noteId: newNote.id,
+          momentId: newMoment.id,
         });
       })
     );
   }
 
-  if (todosData) {
+  if (todos) {
     await Promise.all(
-      todosData.map((todoData) => {
-        db.insert(todo).values(todoData);
-        db.insert(noteTodos).values({
-          noteId: noteData.id,
-          todoId: todoData.id,
+      todos.map(async (todoData) => {
+        const [newTodo] = await db
+          .insert(todo)
+          .values({
+            ...todoData,
+            userId,
+            dueDate: todoData.dueDate ? new Date(todoData.dueDate) : null,
+          })
+          .returning({ id: todo.id });
+        await db.insert(noteTodos).values({
+          noteId: newNote.id,
+          todoId: newTodo.id,
         });
       })
     );
   }
+
+  if (gadgets) {
+    await Promise.all(
+      gadgets.map(async (gadgetData) => {
+        const [newGadget] = await db
+          .insert(gadget)
+          .values({
+            ...gadgetData,
+            userId,
+            purchaseDate: gadgetData.purchaseDate
+              ? new Date(gadgetData.purchaseDate)
+              : null,
+          })
+          .returning({ id: gadget.id });
+
+        await db.insert(noteGadgets).values({
+          noteId: newNote.id,
+          gadgetId: newGadget.id,
+        });
+      })
+    );
+  }
+  return newNote;
 }

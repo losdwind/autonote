@@ -7,14 +7,6 @@ import { ReactNode } from "react";
 import { BotIcon, UserIcon } from "./icons";
 import { Markdown } from "./markdown";
 import { PreviewAttachment } from "./preview-attachment";
-import { Weather } from "./weather";
-import { AuthorizePayment } from "../flights/authorize-payment";
-import { DisplayBoardingPass } from "../flights/boarding-pass";
-import { CreateReservation } from "../flights/create-reservation";
-import { FlightStatus } from "../flights/flight-status";
-import { ListFlights } from "../flights/list-flights";
-import { SelectSeats } from "../flights/select-seats";
-import { VerifyPayment } from "../flights/verify-payment";
 import { NoteCard } from "../notes/note";
 
 export const Message = ({
@@ -68,27 +60,15 @@ export const Message = ({
                 return (
                   <div key={toolCallId}>
                     {toolName === "generateNote" ? (
-                      <NoteCard note={result} />
+                      <NoteCard chatId={chatId} note={result.note} />
                     ) : toolName === "showLatestNote" ? (
-                      <NoteCard note={result} />
-                    ) : toolName === "getWeather" ? (
-                      <Weather weatherAtLocation={result} />
-                    ) : toolName === "displayFlightStatus" ? (
-                      <FlightStatus flightStatus={result} />
-                    ) : toolName === "searchFlights" ? (
-                      <ListFlights chatId={chatId} results={result} />
-                    ) : toolName === "selectSeats" ? (
-                      <SelectSeats chatId={chatId} availability={result} />
-                    ) : toolName === "createReservation" ? (
-                      Object.keys(result).includes("error") ? null : (
-                        <CreateReservation reservation={result} />
+                      result.success ? (
+                        <NoteCard chatId={chatId} note={result.note} />
+                      ) : (
+                        <div className="bg-card border rounded-xl p-4 text-muted-foreground">
+                          {result.error || "No notes found"}
+                        </div>
                       )
-                    ) : toolName === "authorizePayment" ? (
-                      <AuthorizePayment intent={result} />
-                    ) : toolName === "displayBoardingPass" ? (
-                      <DisplayBoardingPass boardingPass={result} />
-                    ) : toolName === "verifyPayment" ? (
-                      <VerifyPayment result={result} />
                     ) : (
                       <div>{JSON.stringify(result, null, 2)}</div>
                     )}
@@ -98,21 +78,9 @@ export const Message = ({
                 return (
                   <div key={toolCallId} className="skeleton">
                     {toolName === "generateNote" ? (
-                      <NoteCard />
-                    ) : toolName === "getWeather" ? (
-                      <Weather />
-                    ) : toolName === "displayFlightStatus" ? (
-                      <FlightStatus />
-                    ) : toolName === "searchFlights" ? (
-                      <ListFlights chatId={chatId} />
-                    ) : toolName === "selectSeats" ? (
-                      <SelectSeats chatId={chatId} />
-                    ) : toolName === "createReservation" ? (
-                      <CreateReservation />
-                    ) : toolName === "authorizePayment" ? (
-                      <AuthorizePayment />
-                    ) : toolName === "displayBoardingPass" ? (
-                      <DisplayBoardingPass />
+                      <NoteCard chatId={chatId} />
+                    ) : toolName === "showLatestNote" ? (
+                      <NoteCard chatId={chatId} />
                     ) : null}
                   </div>
                 );
